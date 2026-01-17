@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMockData, type Post, type Comment } from '../../context/MockDataContext';
-import { MessageSquare, Trash2, EyeOff, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Trash2, EyeOff, AlertTriangle } from 'lucide-react';
 
 export const AdminContentOps: React.FC = () => {
     const { posts, comments, deletePost, hideComment, replyComment } = useMockData();

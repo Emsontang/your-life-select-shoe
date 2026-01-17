@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useMockData, type Post, type Comment } from '../../context/MockDataContext';
-import { Heart, MessageCircle, X, Send, Store } from 'lucide-react';
+import { useMockData } from '../../context/MockDataContext';
+import { Heart, X, Store } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const MobileInspiration: React.FC = () => {
-    const { posts, products, comments, hideComment, replyComment } = useMockData();
+    const { posts, products, comments } = useMockData();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
     const activePost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;

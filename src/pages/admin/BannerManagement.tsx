@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { useMockData, type Banner, type TargetPersona } from '../../context/MockDataContext';
-import { Image, Users, User, Globe, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useMockData, type TargetPersona } from '../../context/MockDataContext';
+import { Users, User, Globe, ToggleLeft, ToggleRight } from 'lucide-react';
 
 export const AdminBannerManagement: React.FC = () => {
     const { banners, toggleBannerActive } = useMockData();

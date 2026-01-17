@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useMockData, type Order } from '../../context/MockDataContext';
-import { Search, Package, Clock, RotateCcw, CheckCircle } from 'lucide-react';
+import { useMockData } from '../../context/MockDataContext';
+import { Package, Clock, RotateCcw } from 'lucide-react';
 
 export const AdminOrderManagement: React.FC = () => {
-    const { orders, shipOrder, refundOrder } = useMockData();
+    const { orders, shipOrder } = useMockData();
     const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'shipped' | 'refunded'>('all');
     const [trackingInput, setTrackingInput] = useState<string>('');
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
