@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMockData } from '../../context/MockDataContext';
-import { Heart, X, Store } from 'lucide-react';
+import { Heart, X, Store, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const MobileInspiration: React.FC = () => {
