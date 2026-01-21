@@ -18,6 +18,7 @@ import { AdminProductManagement } from './pages/admin/ProductManagement';
 import { AdminOrderManagement } from './pages/admin/OrderManagement';
 import { AdminContentOps } from './pages/admin/ContentOps';
 import { AdminBannerManagement } from './pages/admin/BannerManagement';
+import { AdminPostDetail } from './pages/admin/PostDetail';
 
 // Wrappers
 const MobileLayoutWrapper = () => (
@@ -58,6 +59,7 @@ const App: React.FC = () => {
             <Route path="products" element={<AdminProductManagement />} />
             <Route path="orders" element={<AdminOrderManagement />} />
             <Route path="content" element={<AdminContentOps />} />
+            <Route path="content/post/:id" element={<AdminPostDetail />} />
             <Route path="banners" element={<AdminBannerManagement />} />
           </Route>
 

@@ -65,13 +65,21 @@ export interface Banner {
     active: boolean;
 }
 
+// Media Types for Posts
+export interface MediaItem {
+    type: 'image' | 'video';
+    url: string;
+    thumbnail?: string; // For video thumbnails
+}
+
 export interface Post {
     id: string;
     user: string;
     userAvatar: string;
     title: string;
     content: string;
-    images: string[];
+    images: string[]; // Kept for backward compatibility
+    media: MediaItem[]; // New media array with video support
     linkedProductIds: string[];
     likes: number;
     date: string;
@@ -295,8 +303,12 @@ const INITIAL_POSTS: Post[] = [
         user: '爱生活的小张',
         userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
         title: '我的极简书房改造',
-        content: '终于把书房弄成了理想的样子，工学椅真的太舒服了！',
+        content: '终于把书房弄成了理想的样子，工学椅真的太舒服了！\n\n这次改造我选择了极简风格，主要添置了人体工学椅和升降桌。每天工作8小时也不会腰酸背痛了。\n\n推荐给所有居家办公的朋友！',
         images: ['https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&q=80&w=800'],
+        media: [
+            { type: 'image', url: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&q=80&w=800' },
+            { type: 'image', url: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&q=80&w=800' }
+        ],
         linkedProductIds: ['p1', 'p4'],
         likes: 128,
         date: '2025-06-01'
@@ -306,8 +318,12 @@ const INITIAL_POSTS: Post[] = [
         user: 'Molly',
         userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Molly',
         title: '周末的家庭聚餐',
-        content: '大餐桌即使坐6个人也完全不拥挤，质量超好。',
+        content: '大餐桌即使坐6个人也完全不拥挤，质量超好。\n\n实木材质很有质感，家里老人小孩都很喜欢。周末一家人围坐在一起吃饭的感觉真好！',
         images: ['https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&q=80&w=800'],
+        media: [
+            { type: 'image', url: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&q=80&w=800' },
+            { type: 'video', url: 'https://www.w3schools.com/html/mov_bbb.mp4', thumbnail: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&q=80&w=400' }
+        ],
         linkedProductIds: ['p2'],
         likes: 85,
         date: '2025-06-02'
@@ -317,11 +333,30 @@ const INITIAL_POSTS: Post[] = [
         user: 'TechBro',
         userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
         title: '避坑指南：这款椅子不行',
-        content: '坐久了腰疼，不推荐购买。',
-        images: ['https://images.unsplash.com/photo-1505693416388-b03463121f29?auto=format&fit=crop&q=80&w=800'],
+        content: '坐久了腰疼，不推荐购买。\n\n我买了两个月，现在腰已经不行了。可能是我使用姿势不对？总之大家谨慎购买。',
+        images: ['/office_chair_warning.png'],
+        media: [
+            { type: 'image', url: '/office_chair_warning.png' }
+        ],
         linkedProductIds: ['p5'],
         likes: 2,
         date: '2025-06-03'
+    },
+    {
+        id: 'post4',
+        user: '家居达人小王',
+        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Wang',
+        title: '【视频】客厅改造全记录',
+        content: '历时一个月的客厅改造终于完成了！\n\n从设计到选材到施工，全程记录分享给大家。视频里有详细的过程，希望能给想装修的朋友一些灵感。',
+        images: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800'],
+        media: [
+            { type: 'video', url: 'https://www.w3schools.com/html/movie.mp4', thumbnail: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=400' },
+            { type: 'image', url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800' },
+            { type: 'image', url: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&q=80&w=800' }
+        ],
+        linkedProductIds: ['p6', 'p7'],
+        likes: 256,
+        date: '2025-06-04'
     }
 ];
 

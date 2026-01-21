@@ -1,15 +1,37 @@
 import React, { useState } from 'react';
 import { useMockData } from '../../context/MockDataContext';
-import { Heart, X, Store, MessageCircle } from 'lucide-react';
+import { Heart, X, Store, MessageCircle, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const MobileInspiration: React.FC = () => {
     const { posts, products, comments } = useMockData();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     const activePost = selectedPostId ? posts.find(p => p.id === selectedPostId) : null;
     const postComments = activePost ? comments.filter(c => c.postId === activePost.id && !c.isHidden) : [];
     const linkedProducts = activePost ? products.filter(p => activePost.linkedProductIds.includes(p.id)) : [];
+
+    // Get media array (fallback to images for backward compatibility)
+    const activeMedia = activePost
+        ? (activePost.media.length > 0 ? activePost.media : activePost.images.map(url => ({ type: 'image' as const, url })))
+        : [];
+
+    const openPost = (postId: string) => {
+        setSelectedPostId(postId);
+        setCurrentMediaIndex(0);
+    };
+
+    const closePost = () => {
+        setSelectedPostId(null);
+        setCurrentMediaIndex(0);
+    };
+
+    const nextMedia = () => setCurrentMediaIndex(i => (i + 1) % activeMedia.length);
+    const prevMedia = () => setCurrentMediaIndex(i => (i - 1 + activeMedia.length) % activeMedia.length);
+
+    // Check if post has video content for badge
+    const hasVideo = (post: typeof posts[0]) => post.media.some(m => m.type === 'video');
 
     return (
         <div className="min-h-full bg-gray-50 pb-20">
@@ -23,11 +45,17 @@ export const MobileInspiration: React.FC = () => {
                 {posts.map(post => (
                     <div
                         key={post.id}
-                        onClick={() => setSelectedPostId(post.id)}
+                        onClick={() => openPost(post.id)}
                         className="bg-white rounded-xl overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-95"
                     >
                         <div className="relative aspect-[3/4]">
                             <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
+                            {/* Video Badge */}
+                            {hasVideo(post) && (
+                                <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                    <Play size={10} fill="white" /> 视频
+                                </div>
+                            )}
                         </div>
                         <div className="p-3">
                             <h3 className="text-sm font-bold text-gray-800 line-clamp-2">{post.title}</h3>
@@ -55,16 +83,48 @@ export const MobileInspiration: React.FC = () => {
                             <img src={activePost.userAvatar} alt="" className="w-8 h-8 rounded-full" />
                             <span className="font-bold text-sm text-gray-800">{activePost.user}</span>
                         </div>
-                        <button onClick={() => setSelectedPostId(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                        <button onClick={closePost} className="p-2 hover:bg-gray-100 rounded-full">
                             <X size={24} className="text-gray-600" />
                         </button>
                     </div>
 
                     {/* Content */}
                     <div className="pb-24">
-                        {/* Images Carousel (Simplified) */}
-                        <div className="w-full aspect-[4/5] bg-gray-100">
-                            <img src={activePost.images[0]} alt="" className="w-full h-full object-cover" />
+                        {/* Media Carousel */}
+                        <div className="relative w-full aspect-[4/5] bg-gray-100">
+                            <MediaRenderer item={activeMedia[currentMediaIndex]} />
+
+                            {/* Navigation Arrows */}
+                            {activeMedia.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); prevMedia(); }}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); nextMedia(); }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </>
+                            )}
+
+                            {/* Dots Indicator */}
+                            {activeMedia.length > 1 && (
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                    {activeMedia.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={(e) => { e.stopPropagation(); setCurrentMediaIndex(idx); }}
+                                            className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentMediaIndex ? 'bg-white w-4' : 'bg-white/50'
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-4">
@@ -146,4 +206,20 @@ export const MobileInspiration: React.FC = () => {
             )}
         </div>
     );
+};
+
+// Media Renderer Component for video/image display
+const MediaRenderer: React.FC<{ item: { type: 'image' | 'video'; url: string; thumbnail?: string } }> = ({ item }) => {
+    if (item.type === 'video') {
+        return (
+            <video
+                src={item.url}
+                controls
+                className="w-full h-full object-contain bg-black"
+                poster={item.thumbnail}
+                playsInline
+            />
+        );
+    }
+    return <img src={item.url} alt="" className="w-full h-full object-cover" />;
 };
