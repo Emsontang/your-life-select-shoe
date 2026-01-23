@@ -19,6 +19,15 @@ import { AdminOrderManagement } from './pages/admin/OrderManagement';
 import { AdminContentOps } from './pages/admin/ContentOps';
 import { AdminBannerManagement } from './pages/admin/BannerManagement';
 import { AdminPostDetail } from './pages/admin/PostDetail';
+import { AdminUserManagement } from './pages/admin/UserManagement';
+import { AdminMarketingOps } from './pages/admin/MarketingOps';
+import { AdminDashboard } from './pages/admin/Dashboard';
+import { MobileCouponCenter } from './pages/mobile/CouponCenter';
+import { OrderList } from './pages/mobile/OrderList';
+import { OrderDetail } from './pages/mobile/OrderDetail';
+import { PRDDocument } from './pages/docs/PRDDocument';
+
+import { LandingPage } from './pages/LandingPage';
 
 // Wrappers
 const MobileLayoutWrapper = () => (
@@ -38,11 +47,12 @@ const App: React.FC = () => {
     <MockDataProvider>
       <BrowserRouter>
         <Routes>
-          {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/app/home" replace />} />
+          {/* Landing Page */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* Mobile Routes */}
           <Route path="/app" element={<MobileLayoutWrapper />}>
+            <Route index element={<Navigate to="home" replace />} />
             <Route path="home" element={<MobileHome />} />
             <Route path="inspiration" element={<MobileInspiration />} />
             <Route path="category" element={<MobileCategory />} />
@@ -50,18 +60,26 @@ const App: React.FC = () => {
             <Route path="product/:id" element={<MobileProduct />} />
             <Route path="cart" element={<MobileCart />} />
             <Route path="profile" element={<MobileProfile />} />
+            <Route path="coupon" element={<MobileCouponCenter />} />
+            <Route path="orders" element={<OrderList />} />
+            <Route path="order/:id" element={<OrderDetail />} />
           </Route>
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout><Outlet /></AdminLayout>}>
-            <Route index element={<Navigate to="tags" replace />} />
+            <Route index element={<AdminDashboard />} />
             <Route path="tags" element={<AdminTagConfig />} />
             <Route path="products" element={<AdminProductManagement />} />
             <Route path="orders" element={<AdminOrderManagement />} />
             <Route path="content" element={<AdminContentOps />} />
             <Route path="content/post/:id" element={<AdminPostDetail />} />
             <Route path="banners" element={<AdminBannerManagement />} />
+            <Route path="users" element={<AdminUserManagement />} />
+            <Route path="marketing" element={<AdminMarketingOps />} />
           </Route>
+
+          {/* Docs Routes */}
+          <Route path="/docs/prd" element={<PRDDocument />} />
 
         </Routes>
       </BrowserRouter>

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, type ReactNode } from 'react';
 
 // Types
-export type PersonaId = 'single' | 'family';
+export type PersonaId = 'single' | 'family' | 'couple' | 'three_gens';
 export type SpaceId = 'living' | 'bedroom' | 'kitchen' | 'workspace' | 'kids_room' | 'bathroom' | 'balcony';
 
 // New Ops Types
-export type OrderStatus = 'pending' | 'shipped' | 'refunded';
-export type TargetPersona = 'all' | 'single' | 'family';
+export type OrderStatus = 'unpaid' | 'pending_shipment' | 'shipped' | 'completed' | 'refunded';
+export type TargetPersona = 'all' | 'single' | 'family' | 'couple' | 'three_gens';
 
 export interface Persona {
     id: PersonaId;
@@ -96,6 +96,97 @@ export interface Comment {
     date: string;
 }
 
+// --- User Tier & Coupons ---
+export type MemberTier = 'resident' | 'manager_l1' | 'manager_l2' | 'god';
+
+export interface UserProfile {
+    id: string;
+    name: string;
+    avatar: string;
+
+    // Ledger
+    lifetimeSpend: number;
+    annualSpend: number;
+
+    // Membership
+    tier: MemberTier;
+    expiryDate: string | null;
+    points: number;
+}
+
+export type CouponType = 'cash_off' | 'percent_off';
+
+export interface Coupon {
+    id: string;
+    title: string;
+    desc: string;
+    type: CouponType;
+    value: number;
+    minSpend: number;
+
+    // Restrictions
+    targetTier?: MemberTier[];
+    targetCategory?: string[];
+
+    status: 'active' | 'used' | 'expired';
+}
+
+export interface CartSummary {
+    subtotal: number;
+    memberDiscountRate: number;
+    savings: {
+        member: number;
+        coupon: number;
+    };
+    finalPrice: number;
+    appliedCouponId?: string;
+}
+
+// Helper Algorithms
+export function calculateTier(lifetime: number, annual: number): MemberTier {
+    if (lifetime < 500) return 'resident';
+    if (annual >= 2000) return 'god';
+    if (annual >= 1000) return 'manager_l2';
+    return 'manager_l1'; // Default fallback once lifetime requirement met
+}
+
+export function calculateCartTotal(
+    items: CartItem[],
+    userTier: MemberTier,
+    coupon?: Coupon
+): CartSummary {
+    // 1. Subtotal
+    const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+    // 2. Member Discount
+    const tierRates: Record<MemberTier, number> = {
+        resident: 1, manager_l1: 0.95, manager_l2: 0.9, god: 0.8
+    };
+    const rate = tierRates[userTier];
+    const priceAfterMember = subtotal * rate;
+    const memberSaving = subtotal - priceAfterMember;
+
+    // 3. Coupon
+    let couponSaving = 0;
+    if (coupon && priceAfterMember >= coupon.minSpend) {
+        if (coupon.type === 'cash_off') {
+            couponSaving = coupon.value;
+        } else if (coupon.type === 'percent_off') {
+            couponSaving = priceAfterMember * (1 - coupon.value);
+        }
+    }
+
+    const finalPrice = Math.max(0, priceAfterMember - couponSaving);
+
+    return {
+        subtotal,
+        memberDiscountRate: rate,
+        savings: { member: memberSaving, coupon: couponSaving },
+        finalPrice,
+        appliedCouponId: coupon?.id
+    };
+}
+
 interface MockDataContextType {
     personas: Persona[];
     spaces: Space[];
@@ -106,6 +197,11 @@ interface MockDataContextType {
     banners: Banner[];
     posts: Post[];
     comments: Comment[];
+
+    // V3 New State
+    userProfile: UserProfile;
+    coupons: Coupon[];
+    cartSummary: CartSummary; // Live calculation result
 
     // Actions
     updatePersonaSpaces: (personaId: PersonaId, spaceIds: SpaceId[]) => void;
@@ -126,6 +222,17 @@ interface MockDataContextType {
     hideComment: (commentId: string) => void;
     replyComment: (commentId: string, reply: string) => void;
 
+    // V3 Actions
+    updateUserSpend: (lifetime: number, annual: number) => void;
+    simulateYearPass: () => void;
+    pushCoupon: (coupon: Coupon) => void;
+    claimCoupon: (couponId: string) => void;
+    applyCouponToCart: (couponId?: string) => void;
+
+    // Public Actions (New)
+    payOrder: (orderId: string) => void;
+    confirmReceipt: (orderId: string) => void;
+
     // Helpers
     getProductsByPersonaAndSpace: (personaId: PersonaId, spaceId: SpaceId) => Product[];
 }
@@ -144,8 +251,10 @@ const INITIAL_SPACES: Space[] = [
 ];
 
 const INITIAL_PERSONAS: Persona[] = [
-    { id: 'single', name: '单身贵族', icon: 'User', linkedSpaces: ['living', 'bedroom', 'workspace'] },
-    { id: 'family', name: '三口之家', icon: 'Users', linkedSpaces: ['living', 'kitchen', 'kids_room'] },
+    { id: 'single', name: '单身贵族', icon: 'User', linkedSpaces: ['living', 'kitchen', 'bathroom', 'bedroom'] },
+    { id: 'couple', name: '幸福爱侣', icon: 'Heart', linkedSpaces: ['living', 'bedroom', 'kitchen', 'bathroom'] },
+    { id: 'family', name: '三口之家', icon: 'Users', linkedSpaces: ['living', 'bedroom', 'kids_room', 'kitchen', 'balcony', 'bathroom'] },
+    { id: 'three_gens', name: '三代同堂', icon: 'Home', linkedSpaces: ['living', 'bedroom', 'kids_room', 'kitchen', 'balcony', 'bathroom'] },
 ];
 
 const INITIAL_CATEGORIES: Category[] = [
@@ -167,6 +276,11 @@ const INITIAL_CATEGORIES: Category[] = [
 
     { id: 'double_bed', name: '双人床', parentId: 'beds' },
     { id: 'single_bed', name: '单人床', parentId: 'beds' },
+
+    // New Categories
+    { id: 'kitchen_storage', name: '厨房收纳', parentId: 'storage' },
+    { id: 'bath_storage', name: '卫浴收纳', parentId: 'storage' },
+    { id: 'kids_furniture', name: '儿童家具', parentId: 'tables' },
 ];
 
 // Mock Products (Updated with stock & status)
@@ -174,68 +288,107 @@ const INITIAL_PRODUCTS: Product[] = [
     {
         id: 'p1', name: '电竞工学椅', price: 1299,
         image: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'desk', personaIds: ['single'], spaceIds: ['workspace'],
+        categoryId: 'desk', personaIds: ['single', 'couple'], spaceIds: ['workspace'],
         stock: 50, isOnShelf: true
     },
     {
         id: 'p2', name: '全家福大餐桌 (6人座)', price: 3599,
         image: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'dining_table', personaIds: ['family'], spaceIds: ['kitchen', 'living'],
+        categoryId: 'dining_table', personaIds: ['family', 'three_gens'], spaceIds: ['kitchen', 'living'],
         stock: 12, isOnShelf: true
     },
     {
         id: 'p3', name: '极简茶几', price: 899,
         image: 'https://images.unsplash.com/photo-1532372320572-cda25653a26d?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'coffee_table', personaIds: ['single', 'family'], spaceIds: ['living'],
+        categoryId: 'coffee_table', personaIds: ['single', 'family', 'couple', 'three_gens'], spaceIds: ['living'],
         stock: 100, isOnShelf: true
     },
     {
         id: 'p4', name: '人体工学办公桌', price: 2100,
         image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'desk', personaIds: ['single'], spaceIds: ['workspace', 'bedroom'],
+        categoryId: 'desk', personaIds: ['single', 'couple'], spaceIds: ['workspace', 'bedroom'],
         stock: 25, isOnShelf: true
     },
     {
         id: 'p5', name: '儿童上下铺', price: 4200,
-        image: 'https://images.unsplash.com/photo-1505693416388-b03463121f29?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'single_bed', personaIds: ['family'], spaceIds: ['kids_room'],
+        image: 'https://placehold.co/800x800/e2e8f0/1e293b?text=Kids+Bunk+Bed',
+        categoryId: 'single_bed', personaIds: ['family', 'three_gens'], spaceIds: ['kids_room'],
         stock: 8, isOnShelf: true
     },
     {
         id: 'p6', name: '意式真皮沙发', price: 8999,
         image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'leather_sofa', personaIds: ['family'], spaceIds: ['living'],
+        categoryId: 'leather_sofa', personaIds: ['family', 'three_gens', 'couple'], spaceIds: ['living'],
         stock: 5, isOnShelf: true
     },
     {
         id: 'p7', name: '温馨布艺沙发', price: 3200,
         image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'fabric_sofa', personaIds: ['single'], spaceIds: ['living', 'bedroom'],
+        categoryId: 'fabric_sofa', personaIds: ['single', 'couple'], spaceIds: ['living', 'bedroom'],
         stock: 30, isOnShelf: true
     },
     {
         id: 'p8', name: '模块化书柜', price: 1500,
         image: 'https://images.unsplash.com/photo-1594620302200-9a762244a156?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'bookshelf', personaIds: ['single', 'family'], spaceIds: ['workspace', 'living'],
+        categoryId: 'bookshelf', personaIds: ['single', 'family', 'couple', 'three_gens'], spaceIds: ['workspace', 'living'],
         stock: 60, isOnShelf: true
     },
     {
         id: 'p9', name: '豪华双人床', price: 5600,
         image: 'https://images.unsplash.com/photo-1505693314120-0d443867891c?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'double_bed', personaIds: ['family', 'single'], spaceIds: ['bedroom'],
+        categoryId: 'double_bed', personaIds: ['family', 'single', 'couple', 'three_gens'], spaceIds: ['bedroom'],
         stock: 15, isOnShelf: true
     },
     {
         id: 'p10', name: '紧凑型衣柜', price: 2200,
         image: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'wardrobe', personaIds: ['single'], spaceIds: ['bedroom'],
+        categoryId: 'wardrobe', personaIds: ['single', 'couple'], spaceIds: ['bedroom'],
         stock: 45, isOnShelf: true
     },
     {
         id: 'p11', name: '户外休闲桌椅', price: 2500,
         image: 'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&q=80&w=800',
-        categoryId: 'dining_table', personaIds: ['family'], spaceIds: ['balcony'],
+        categoryId: 'dining_table', personaIds: ['family', 'three_gens'], spaceIds: ['balcony'],
         stock: 20, isOnShelf: true
+    },
+    // Kitchen (Single/Couple)
+    {
+        id: 'p12', name: '极简双人餐桌', price: 1599,
+        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=800',
+        categoryId: 'dining_table', personaIds: ['single', 'couple'], spaceIds: ['kitchen'],
+        stock: 30, isOnShelf: true
+    },
+    {
+        id: 'p13', name: '多功能厨房置物架', price: 499,
+        image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800',
+        categoryId: 'kitchen_storage', personaIds: ['single', 'couple', 'family', 'three_gens'], spaceIds: ['kitchen'],
+        stock: 80, isOnShelf: true
+    },
+    // Bathroom (All)
+    {
+        id: 'p14', name: '智能防雾浴室镜', price: 1299,
+        image: '/assets/p14_smart_mirror.png',
+        categoryId: 'bath_storage', personaIds: ['single', 'couple', 'family', 'three_gens'], spaceIds: ['bathroom'],
+        stock: 40, isOnShelf: true
+    },
+    {
+        id: 'p15', name: '高级纯棉浴巾组', price: 299,
+        image: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&q=80&w=800',
+        categoryId: 'bath_storage', personaIds: ['single', 'couple', 'family', 'three_gens'], spaceIds: ['bathroom'],
+        stock: 200, isOnShelf: true
+    },
+    // Kids Room (Family/ThreeGens)
+    {
+        id: 'p16', name: '实木儿童学习桌', price: 2800,
+        image: 'https://placehold.co/800x800/e2e8f0/1e293b?text=Kids+Study+Desk',
+        categoryId: 'kids_furniture', personaIds: ['family', 'three_gens'], spaceIds: ['kids_room'],
+        stock: 15, isOnShelf: true
+    },
+    {
+        id: 'p17', name: '趣味玩具收纳箱', price: 399,
+        image: 'https://placehold.co/800x800/e2e8f0/1e293b?text=Toy+Storage+Box',
+        categoryId: 'kitchen_storage', personaIds: ['family', 'three_gens'], spaceIds: ['kids_room'],
+        stock: 100, isOnShelf: true
     }
 ];
 
@@ -244,7 +397,7 @@ const INITIAL_BANNERS: Banner[] = [
     {
         id: 'b1',
         title: '独居好物节',
-        image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&q=80&w=1200',
+        image: '/assets/b1_single_noble.png',
         targetPersona: 'single',
         active: true,
         linkProductId: 'p1'
@@ -252,7 +405,7 @@ const INITIAL_BANNERS: Banner[] = [
     {
         id: 'b2',
         title: '家庭焕新季',
-        image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4f9d?auto=format&fit=crop&q=80&w=1200',
+        image: '/assets/b2_family_renewal.png',
         targetPersona: 'family',
         active: true,
         linkProductId: 'p2'
@@ -260,7 +413,7 @@ const INITIAL_BANNERS: Banner[] = [
     {
         id: 'b3',
         title: '全场通用大促',
-        image: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?auto=format&fit=crop&q=80&w=1200',
+        image: '/assets/b3_general_sale.png',
         targetPersona: 'all',
         active: true,
         linkProductId: 'p6'
@@ -268,33 +421,67 @@ const INITIAL_BANNERS: Banner[] = [
 ];
 
 // Mock Orders
-const INITIAL_ORDERS: Order[] = [
-    {
-        id: 'ORD-20231024-001',
-        user: 'UserA',
-        status: 'pending',
-        items: [{ product: INITIAL_PRODUCTS[0], quantity: 1 }],
-        total: 1299,
-        date: '2025-05-20'
-    },
-    {
-        id: 'ORD-20231023-002',
-        user: 'UserB',
-        status: 'shipped',
-        items: [{ product: INITIAL_PRODUCTS[5], quantity: 1 }],
-        total: 8999,
-        date: '2025-05-19',
-        trackingNumber: 'SF1234567890'
-    },
-    {
-        id: 'ORD-20231022-003',
-        user: 'UserC',
-        status: 'refunded',
-        items: [{ product: INITIAL_PRODUCTS[2], quantity: 2 }],
-        total: 1798,
-        date: '2025-05-18'
+const generateMockOrders = (): Order[] => {
+    const orders: Order[] = [];
+    const now = new Date();
+    const statuses: { status: OrderStatus; weight: number }[] = [
+        { status: 'completed', weight: 70 },
+        { status: 'shipped', weight: 10 },
+        { status: 'pending_shipment', weight: 10 },
+        { status: 'unpaid', weight: 5 },
+        { status: 'refunded', weight: 5 }
+    ];
+
+    const users = ['Emson', 'Alice', 'Bob', 'Charlie', 'Diana', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
+
+    // Generate ~150 orders
+    for (let i = 0; i < 150; i++) {
+        // Random date within last 30 days
+        const date = new Date(now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+
+        // Random status
+        const rand = Math.random() * 100;
+        let cumulativeWeight = 0;
+        let selectedStatus: OrderStatus = 'completed';
+        for (const s of statuses) {
+            cumulativeWeight += s.weight;
+            if (rand < cumulativeWeight) {
+                selectedStatus = s.status;
+                break;
+            }
+        }
+
+        // Random items (1-3)
+        const numItems = Math.floor(Math.random() * 3) + 1;
+        const items: CartItem[] = [];
+        let total = 0;
+
+        for (let j = 0; j < numItems; j++) {
+            const product = INITIAL_PRODUCTS[Math.floor(Math.random() * INITIAL_PRODUCTS.length)];
+            const quantity = Math.floor(Math.random() * 2) + 1;
+            items.push({ product, quantity });
+            total += product.price * quantity;
+        }
+
+        orders.push({
+            id: `ORD-${dateStr.replace(/-/g, '')}-${String(i + 1).padStart(3, '0')}`,
+            user: users[Math.floor(Math.random() * users.length)],
+            status: selectedStatus,
+            items,
+            total,
+            date: dateStr,
+            trackingNumber: (selectedStatus === 'shipped' || selectedStatus === 'completed')
+                ? `SF${Math.floor(Math.random() * 10000000000)}`
+                : undefined
+        });
     }
-];
+
+    // Sort by date desc
+    return orders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+const INITIAL_ORDERS: Order[] = generateMockOrders();
 
 // Mock Posts
 const INITIAL_POSTS: Post[] = [
@@ -334,9 +521,9 @@ const INITIAL_POSTS: Post[] = [
         userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
         title: '避坑指南：这款椅子不行',
         content: '坐久了腰疼，不推荐购买。\n\n我买了两个月，现在腰已经不行了。可能是我使用姿势不对？总之大家谨慎购买。',
-        images: ['/office_chair_warning.png'],
+        images: ['/assets/office_chair_warning.png'],
         media: [
-            { type: 'image', url: '/office_chair_warning.png' }
+            { type: 'image', url: '/assets/office_chair_warning.png' }
         ],
         linkedProductIds: ['p5'],
         likes: 2,
@@ -376,6 +563,33 @@ const INITIAL_COMMENTS: Comment[] = [
     }
 ];
 
+// Initial V3 Data
+const INITIAL_USER: UserProfile = {
+    id: 'u1',
+    name: 'Emson',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emson',
+    lifetimeSpend: 0,
+    annualSpend: 0,
+    tier: 'resident',
+    expiryDate: null,
+    points: 0
+};
+
+const INITIAL_COUPONS: Coupon[] = [
+    {
+        id: 'cp1', title: '新人见面礼', desc: '满100减20', type: 'cash_off', value: 20, minSpend: 100,
+        targetTier: ['resident'], status: 'active'
+    },
+    {
+        id: 'cp2', title: '主理人尊享', desc: '全场9折', type: 'percent_off', value: 0.9, minSpend: 0,
+        targetTier: ['manager_l1', 'manager_l2', 'god'], status: 'active'
+    },
+    {
+        id: 'cp3', title: '全站通用券', desc: '满500减50', type: 'cash_off', value: 50, minSpend: 500,
+        status: 'active'
+    }
+];
+
 export const MockDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [personas, setPersonas] = useState<Persona[]>(INITIAL_PERSONAS);
     const [spaces] = useState<Space[]>(INITIAL_SPACES);
@@ -388,7 +602,14 @@ export const MockDataProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
     const [comments, setComments] = useState<Comment[]>(INITIAL_COMMENTS);
 
-    // Update logic: Persona <-> Spaces
+    // V3 State
+    const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER);
+    const [coupons, setCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
+    const [activeCouponId, setActiveCouponId] = useState<string | undefined>(undefined);
+
+    // V3 Derived State
+    const activeCoupon = coupons.find(c => c.id === activeCouponId);
+    const cartSummary = calculateCartTotal(cart, userProfile.tier, activeCoupon);
     const updatePersonaSpaces = (personaId: PersonaId, spaceIds: SpaceId[]) => {
         setPersonas(prev => prev.map(p =>
             p.id === personaId ? { ...p, linkedSpaces: spaceIds } : p
@@ -472,13 +693,67 @@ export const MockDataProvider: React.FC<{ children: ReactNode }> = ({ children }
         );
     };
 
+    // V3 Logic Impl
+    const updateUserSpend = (lifetime: number, annual: number) => {
+        const newTier = calculateTier(lifetime, annual);
+        setUserProfile(prev => ({
+            ...prev,
+            lifetimeSpend: lifetime,
+            annualSpend: annual,
+            tier: newTier,
+            // If graduated to manager+, set expiry 1 year from now
+            expiryDate: (newTier !== 'resident' && prev.tier === 'resident')
+                ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                : prev.expiryDate
+        }));
+    };
+
+    const simulateYearPass = () => {
+        setUserProfile(prev => {
+            // Downgrade logic
+            // Reset to Manager L1 if currently > Resident, Annual -> 0
+            const nextTier = prev.tier === 'resident' ? 'resident' : 'manager_l1';
+            return {
+                ...prev,
+                annualSpend: 0,
+                tier: nextTier
+            };
+        });
+    };
+
+    const pushCoupon = (coupon: Coupon) => {
+        setCoupons(prev => [coupon, ...prev]);
+    };
+
+    const claimCoupon = (couponId: string) => {
+        // In real app, this might move template -> user coupon list
+        // Here we simplify: if status is 'active', just ensure it is available
+        console.log('Claimed', couponId);
+    };
+
+    const applyCouponToCart = (couponId?: string) => {
+        setActiveCouponId(couponId);
+    };
+
     return (
         <MockDataContext.Provider value={{
             personas, spaces, categories, products, cart,
             orders, banners, posts, comments,
             updatePersonaSpaces, addProduct, updateProduct, addToCart, removeFromCart, updateCartQuantity, clearCart,
             shipOrder, refundOrder, toggleProductShelf, toggleBannerActive, addPost, deletePost, hideComment, replyComment,
-            getProductsByPersonaAndSpace
+            getProductsByPersonaAndSpace,
+
+            // V3 Exports
+            userProfile, coupons, cartSummary,
+            updateUserSpend, simulateYearPass, pushCoupon, claimCoupon, applyCouponToCart,
+
+            // Public Actions
+            payOrder: (orderId: string) => {
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'pending_shipment' } : o));
+            },
+            confirmReceipt: (orderId: string) => {
+                setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed' } : o));
+            },
         }}>
             {children}
         </MockDataContext.Provider>

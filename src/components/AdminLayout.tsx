@@ -1,6 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Tag, Package, LogOut, ShoppingBag, MessageSquare, Image } from 'lucide-react';
+import { Tag, Package, LogOut, ShoppingBag, MessageSquare, Image, Users, Ticket, LayoutDashboard } from 'lucide-react';
 import { ReqSidebar } from './ReqSidebar'; // Global requirement sidebar
 
 export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -13,6 +13,14 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
+                    <NavLink
+                        to="/admin"
+                        end
+                        className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                        <LayoutDashboard size={18} />
+                        运营中心
+                    </NavLink>
                     <NavLink
                         to="/admin/tags"
                         className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100'}`}
@@ -47,6 +55,20 @@ export const AdminLayout: React.FC<{ children: ReactNode }> = ({ children }) => 
                     >
                         <Image size={18} />
                         轮播配置
+                    </NavLink>
+                    <NavLink
+                        to="/admin/users"
+                        className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                        <Users size={18} />
+                        用户管理
+                    </NavLink>
+                    <NavLink
+                        to="/admin/marketing"
+                        className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                        <Ticket size={18} />
+                        营销配置
                     </NavLink>
                 </nav>
 

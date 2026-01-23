@@ -60,7 +60,9 @@ const PersonaBadge = ({ target }: { target: TargetPersona }) => {
     const config = {
         all: { icon: Globe, text: '全量用户', color: 'bg-blue-100 text-blue-700' },
         single: { icon: User, text: '单身贵族', color: 'bg-purple-100 text-purple-700' },
-        family: { icon: Users, text: '三口之家', color: 'bg-orange-100 text-orange-700' }
+        family: { icon: Users, text: '三口之家', color: 'bg-orange-100 text-orange-700' },
+        couple: { icon: User, text: '幸福爱侣', color: 'bg-pink-100 text-pink-700' },
+        three_gens: { icon: Users, text: '三代同堂', color: 'bg-green-100 text-green-700' }
     };
     const { icon: Icon, text, color } = config[target];
 

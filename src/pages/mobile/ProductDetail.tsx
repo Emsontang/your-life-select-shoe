@@ -6,7 +6,7 @@ import { ChevronLeft, Share } from 'lucide-react';
 export const MobileProduct: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { products, addToCart, getProductsByPersonaAndSpace } = useMockData();
+    const { products, addToCart, getProductsByPersonaAndSpace, cart } = useMockData();
 
     const product = products.find(p => p.id === id);
 
@@ -53,7 +53,15 @@ export const MobileProduct: React.FC = () => {
                     </span>
                     {product.personaIds.map(pid => (
                         <span key={pid} className="px-2 py-1 bg-orange-50 text-orange-600 rounded-md text-[10px] font-medium border border-orange-100">
-                            {pid === 'single' ? '单身贵族' : '三口之家'}
+                            {(() => {
+                                const map: Record<string, string> = {
+                                    single: '单身贵族',
+                                    family: '三口之家',
+                                    couple: '幸福爱侣',
+                                    three_gens: '三代同堂'
+                                };
+                                return map[pid] || pid;
+                            })()}
                         </span>
                     ))}
                 </div>
@@ -90,9 +98,16 @@ export const MobileProduct: React.FC = () => {
 
             {/* Fixed Footer */}
             <div className="fixed bottom-0 max-w-[390px] w-full bg-white border-t border-gray-100 p-4 pb-8 flex items-center gap-4 z-50">
-                <button className="p-3 rounded-full hover:bg-stone transition-colors text-gray-600 relative">
+                <button
+                    onClick={() => navigate('/app/cart')}
+                    className="p-3 rounded-full hover:bg-stone transition-colors text-gray-600 relative"
+                >
                     <ShoppingBag size={24} />
-                    {/* We could show badge here too */}
+                    {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-bold">
+                            {cart.reduce((a, b) => a + b.quantity, 0)}
+                        </span>
+                    )}
                 </button>
                 <button
                     onClick={handleAddToCart}
